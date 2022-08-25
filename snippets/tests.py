@@ -1,7 +1,13 @@
+from curses import REPORT_MOUSE_POSITION
+from doctest import REPORT_CDIFF
+from django.contrib.auth import get_user_model
 from django.urls import resolve
-from django.test import TestCase
+from django.test import TestCase, Client, RequestFactory
 
-from snippets.views import snippet_detail, snippet_edit, snippet_new
+from snippets.models import Snippet
+from snippets.views import top
+
+UserModel = get_user_model()
 
 
 class TopPageTest(TestCase):
@@ -14,19 +20,51 @@ class TopPageTest(TestCase):
         self.assertTemplateUsed(response, "snippets/top.html")
 
 
-class CreateSnippetTest(TestCase):
-    def test_should_resolve_snippet_new(self):
-        found = resolve("/snippets/new")
-        self.assertEqual(snippet_new, found.func)
+class TopPageRenderSnippetsTest(TestCase):
+    def setUp(self):
+        self.user = UserModel.objects.create(
+            username="test_user",
+            email="test@example.com",
+            password="top_secret_pass0001",
+        )
+        self.snippet = Snippet.objects.create(
+            title="title1",
+            code="print('hello')",
+            description="description1",
+            created_by=self.user
+        )
+
+    def test_should_return_snippet_title(self):
+        request = RequestFactory().get("/")
+        request.user = self.user
+        response = top(request)
+        self.assertContains(response, self.snippet.title)
+
+    def test_should_return_username(self):
+        request = RequestFactory().get("/")
+        request.user = self.user
+        response = top(request)
+        self.assertContains(response, self.user.username)
 
 
 class SnippetDetailTest(TestCase):
-    def test_should_resolve_snippet_detail(self):
-        found = resolve("/snippets/1")
-        self.assertEqual(snippet_detail, found.func)
+    def setUp(self):
+        self.user = UserModel.objects.create(
+            username="test_user",
+            email="test@example.com",
+            password="secret"
+        )
+        self.snippet = Snippet.objects.create(
+            title='タイトル',
+            code="コード",
+            description="解説",
+            created_by=self.user
+        )
 
+    def test_should_use_expected_template(self):
+        response = self.client.get("/snippets/%s/" % self.snippet.id)
+        self.assertTemplateUsed(response, "snippets/snippet_detail.html")
 
-class EditSnippetTest(TestCase):
-    def test_should_resolve_snippet_edit(self):
-        found = resolve("/snippets/edit/")
-        self.assertEqual(snippet_edit, found.func)
+    def test_top_page_returns_200_and_expected_heading(self):
+        response = self.client.get("/snippets/%s/" % self.snippet.id)
+        self.assertContains(response, self.snippet.title, status_code=200)
