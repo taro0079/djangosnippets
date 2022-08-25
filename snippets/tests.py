@@ -1,4 +1,4 @@
-from pydoc import resolve
+from django.urls import resolve
 from django.test import TestCase
 
 from snippets.views import snippet_detail, snippet_edit, snippet_new
